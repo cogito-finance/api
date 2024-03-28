@@ -1,6 +1,5 @@
 from http.server import BaseHTTPRequestHandler
 from requests import Session
-from requests.exceptions import Timeout, TooManyRedirects
 import requests
 import json
 import os
@@ -15,10 +14,6 @@ class handler(BaseHTTPRequestHandler):
         supply_req = requests.get(
             'https://tokensupply.singularitynet.io/tokensupply?tokensymbol=cgv&q=circulatingsupply')
         supply = supply_req.json()
-
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
 
         url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
         parameters = {
@@ -37,7 +32,10 @@ class handler(BaseHTTPRequestHandler):
             data = json.loads(response.text)
             price = data['data'][CMC_ID]['quote']['USD']['price']
             mcap = price * supply
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
             self.wfile.write("{:.2f}".format(mcap).encode())
-        except (ConnectionError, Timeout, TooManyRedirects) as e:
+        except Exception as e:
             print(e)
-            # return jsonify(False)
+            self.send_response(500)
