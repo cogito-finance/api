@@ -1,5 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 from requests import Session
+from datetime import datetime
 import requests
 import json
 import os
@@ -9,8 +10,18 @@ CMC_API_KEY = os.environ.get('CMC_API_KEY')
 
 
 class handler(BaseHTTPRequestHandler):
+    cache = None
 
     def do_GET(self):
+        if self.cache is None:
+            self.cache = {}
+        elif (datetime.now() - self.cache['timestamp']).total_seconds() < 60:
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write("{:.2f}".format(self.cache['mcap']).encode())
+            return
+
         supply_req = requests.get(
             'https://tokensupply.singularitynet.io/tokensupply?tokensymbol=cgv&q=circulatingsupply')
         supply = supply_req.json()
@@ -32,6 +43,10 @@ class handler(BaseHTTPRequestHandler):
             data = json.loads(response.text)
             price = data['data'][CMC_ID]['quote']['USD']['price']
             mcap = price * supply
+
+            self.cache['mcap'] = mcap
+            self.cache['timestamp'] = datetime.now()
+
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
